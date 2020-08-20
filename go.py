@@ -101,30 +101,5 @@ def register() :
     requests.post(url, headers=newXHeader, params=_param, data = registerQuery, verify=False)
     print('Done')
 
-
-# def picToText():
-#     img = Image.open('ValidNumber.gif')
-#     img = img.convert("L")
-#     img.save("test1.jpg")
-#     text = pytesseract.image_to_string(img, lang='eng')
-#     print(text)
-
-
-# def getValiPic():
-#     url = "https://reg.ntuh.gov.tw/WebAdministration/ValidNumber.aspx"
-#     query = {
-#         'checkCode': checkCode
-#     }
-#     r = requests.get(url, headers=checkCodeHeader, params=query ,verify=False)
-#     img = Image.open(BytesIO(r.content))
-#     if img.mode == "P":
-#         img = img.convert('RGB')
-#     img = img.crop((0, 0, 120, 45))
-#     text = pytesseract.image_to_string(img, lang='eng')
-#     print(text.strip())
-
-
-
 getNewX()
-
 f.close()
