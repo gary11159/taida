@@ -28,6 +28,8 @@ checkCodeHeader = {
     'Cookie': '__utma=218787014.1820628005.1597902821.1597902821.1597902821.1; __utmc=218787014; __utmz=218787014.1597902821.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); ASP.NET_SessionId=ynohny55hvnbiq45qiklgn45'
 }
 
+f = open('newxQuery.txt', 'r')
+newxQuery = f.read()
 
 def getCheckCode():
     global checkCode
@@ -59,9 +61,11 @@ def getValiPic():
     text = pytesseract.image_to_string(img, lang='eng')
     print(text.strip())
 
-def order():
 
 
-getCheckCode()
-getValiPic()
+# getCheckCode()
+# getValiPic()
 # picToText()
+print(newxQuery)
+
+f.close()
