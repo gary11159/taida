@@ -1,3 +1,5 @@
-每個人認證碼(verifyCode)要去確認一次，系統才會給預約。
+每個人認證碼(verifyCode)和送出預約的__VIEWSTATE要去確認一次，系統才會給預約。
 
 ServiceIDSE 是該門診代碼
+
+newx的__VIEWSTATE和送出預約的__VIEWSTATE是不一樣的
