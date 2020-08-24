@@ -8,6 +8,9 @@ import ast
 from PIL import Image
 import pytesseract
 from io import BytesIO
+import re
+from bs4 import BeautifulSoup
+import base64
 
 requests.packages.urllib3.disable_warnings()
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -39,23 +42,11 @@ newXHeader = {
     'Connection': 'keep-alive'
 }
 
-fixNewxQuery = {
-    '__EVENTTARGET': 'DoctorServiceListInSeveralDaysTemplateIDSE$GridViewDoctorServiceList$_ctl3$AdminTextShow',
-    '__EVENTARGUMENT': '',
-    '__VIEWSTATEGENERATOR': '259B12C8',
-    'HiddenDeptCode': 'SURG',
-    'HiddenFieldHospCode': 'T0',
-    'HiddenFieldSubDeptCode': '01',
-    'HiddenFieldAMPM': '1',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl2:HospitalCode': 'T0',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl2:ServiceIDSE': '4308484',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl2:ServiceEncryptCode': 'T0SURG0920200826',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl2:FirstVisitQuotaFlag': 'n',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl3:HospitalCode': 'T0',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl3:ServiceIDSE': '4318153',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl3:ServiceEncryptCode': 'T0SURG0920200902',
-    'DoctorServiceListInSeveralDaysTemplateIDSE:GridViewDoctorServiceList:_ctl3:FirstVisitQuotaFlag': 'n'
+serviceQuery = {
+    'ServiceIDSE': '4306633'
 }
+
+fixNewxQuery = {}
 
 registerQuery = {
     'scrollLeft': '0',
@@ -69,7 +60,7 @@ registerQuery = {
     'ddlBirthYear': '1995',
     'ddlBirthMonth': '11',
     'ddlBirthDay': '15',
-    'txtVerifyCode': 'LF66JH',
+    'txtVerifyCode': '',
     'btnOK': '處理中..'
 }
 
@@ -90,6 +81,7 @@ def getValiPic():
     img = img.crop((0, 0, 120, 45))
     text = pytesseract.image_to_string(img, lang='eng')
     valiNum = text.strip()
+    print(valiNum)
 
 def getCheckCode():
     global checkCode
@@ -102,26 +94,92 @@ def getCheckCode():
 def getNewX():
     global newx
     url = "https://reg.ntuh.gov.tw/webadministration/ClinicListUnderSpecificTemplateIDSE.aspx"
-    _param = {
-        'ServiceIDSE': '4308484'
-    }
     fixNewxQuery.update(newxQuery)
-    r = requests.post(url, headers=newXHeader, params=_param, data = fixNewxQuery, verify=False)
+    r = requests.post(url, headers=newXHeader, params=serviceQuery, data = fixNewxQuery, verify=False)
     firstPosition = r.text.index('RegistForm.aspx?newx') + 21
     lastPoisition = r.text.index('" id', firstPosition)
     newx = r.text[firstPosition:lastPoisition]   
-    register()
 
-def register() :
+# 掛號
+def register(viewState, valiNum) :
     url = "https://reg.ntuh.gov.tw/webadministration/RegistForm.aspx"
     _param = {
         'newx': newx
     }
     registerQuery['txtVerifyCode'] = valiNum
-    registerQuery['__VIEWSTATE'] = '/wEPDwUKLTg5ODA5MjQ5OA9kFgICAg9kFgICAQ9kFgoCBw9kFgICAw9kFgpmD2QWAgIBD2QWAgIBDw8WAh4EVGV4dAUYMTA5LjkuMiDmmJ/mnJ/kuIkg5LiK5Y2IZGQCAQ9kFgICAQ9kFgICAQ8PFgIfAAUJ5aSW56eR6YOoZGQCAg9kFgICAQ9kFgICAQ8PFgIfAAUp5pmu6YCa6ZaA6Ki6IOesrDA56Ki6ICjku6PnorzvvJogMTAzMjA5IClkZAIDD2QWAgIBD2QWAgIBDw8WAh8ABRHpmbPnn7PmsaAgIOmGq+W4q2RkAgQPZBYCAgEPZBYCAgEPDxYCHwAFFee4vemZouWNgC3opb/lnYAtMeaok2RkAgkPZBYCAgUPZBYKZg9kFgRmD2QWAgIDDxBkZBYBAgFkAgEPZBYGAgEPDxYCHwBlZGQCAw8PFgIeB1Zpc2libGVnZGQCBQ8PFgIfAGVkZAIBD2QWAgIBD2QWBgIBDxBkEBWYAQnoq4vpgbjmk4cG5YmNIDQyBuWJjSA0MQbliY0gNDAG5YmNIDM5BuWJjSAzOAbliY0gMzcG5YmNIDM2BuWJjSAzNQbliY0gMzQG5YmNIDMzBuWJjSAzMgbliY0gMzEG5YmNIDMwBuWJjSAyOQbliY0gMjgG5YmNIDI3BuWJjSAyNgbliY0gMjUG5YmNIDI0BuWJjSAyMwbliY0gMjIG5YmNIDIxBuWJjSAyMAbliY0gMTkG5YmNIDE4BuWJjSAxNwbliY0gMTYG5YmNIDE1BuWJjSAxNAbliY0gMTMG5YmNIDEyBuWJjSAxMQbliY0gMTAF5YmNIDkF5YmNIDgF5YmNIDcF5YmNIDYF5YmNIDUF5YmNIDQF5YmNIDMF5YmNIDIF5YmNIDEBMQEyATMBNAE1ATYBNwE4ATkCMTACMTECMTICMTMCMTQCMTUCMTYCMTcCMTgCMTkCMjACMjECMjICMjMCMjQCMjUCMjYCMjcCMjgCMjkCMzACMzECMzICMzMCMzQCMzUCMzYCMzcCMzgCMzkCNDACNDECNDICNDMCNDQCNDUCNDYCNDcCNDgCNDkCNTACNTECNTICNTMCNTQCNTUCNTYCNTcCNTgCNTkCNjACNjECNjICNjMCNjQCNjUCNjYCNjcCNjgCNjkCNzACNzECNzICNzMCNzQCNzUCNzYCNzcCNzgCNzkCODACODECODICODMCODQCODUCODYCODcCODgCODkCOTACOTECOTICOTMCOTQCOTUCOTYCOTcCOTgCOTkDMTAwAzEwMQMxMDIDMTAzAzEwNAMxMDUDMTA2AzEwNwMxMDgDMTA5FZgBAAQxODcwBDE4NzEEMTg3MgQxODczBDE4NzQEMTg3NQQxODc2BDE4NzcEMTg3OAQxODc5BDE4ODAEMTg4MQQxODgyBDE4ODMEMTg4NAQxODg1BDE4ODYEMTg4NwQxODg4BDE4ODkEMTg5MAQxODkxBDE4OTIEMTg5MwQxODk0BDE4OTUEMTg5NgQxODk3BDE4OTgEMTg5OQQxOTAwBDE5MDEEMTkwMgQxOTAzBDE5MDQEMTkwNQQxOTA2BDE5MDcEMTkwOAQxOTA5BDE5MTAEMTkxMQQxOTEyBDE5MTMEMTkxNAQxOTE1BDE5MTYEMTkxNwQxOTE4BDE5MTkEMTkyMAQxOTIxBDE5MjIEMTkyMwQxOTI0BDE5MjUEMTkyNgQxOTI3BDE5MjgEMTkyOQQxOTMwBDE5MzEEMTkzMgQxOTMzBDE5MzQEMTkzNQQxOTM2BDE5MzcEMTkzOAQxOTM5BDE5NDAEMTk0MQQxOTQyBDE5NDMEMTk0NAQxOTQ1BDE5NDYEMTk0NwQxOTQ4BDE5NDkEMTk1MAQxOTUxBDE5NTIEMTk1MwQxOTU0BDE5NTUEMTk1NgQxOTU3BDE5NTgEMTk1OQQxOTYwBDE5NjEEMTk2MgQxOTYzBDE5NjQEMTk2NQQxOTY2BDE5NjcEMTk2OAQxOTY5BDE5NzAEMTk3MQQxOTcyBDE5NzMEMTk3NAQxOTc1BDE5NzYEMTk3NwQxOTc4BDE5NzkEMTk4MAQxOTgxBDE5ODIEMTk4MwQxOTg0BDE5ODUEMTk4NgQxOTg3BDE5ODgEMTk4OQQxOTkwBDE5OTEEMTk5MgQxOTkzBDE5OTQEMTk5NQQxOTk2BDE5OTcEMTk5OAQxOTk5BDIwMDAEMjAwMQQyMDAyBDIwMDMEMjAwNAQyMDA1BDIwMDYEMjAwNwQyMDA4BDIwMDkEMjAxMAQyMDExBDIwMTIEMjAxMwQyMDE0BDIwMTUEMjAxNgQyMDE3BDIwMTgEMjAxOQQyMDIwFCsDmAFnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZxYBAn5kAgMPEGQQFQ0J6KuL6YG45pOHAjAxAjAyAjAzAjA0AjA1AjA2AjA3AjA4AjA5AjEwAjExAjEyFQ0AAjAxAjAyAjAzAjA0AjA1AjA2AjA3AjA4AjA5AjEwAjExAjEyFCsDDWdnZ2dnZ2dnZ2dnZ2cWAQILZAIFDxBkEBUfCeiri+mBuOaThwIwMQIwMgIwMwIwNAIwNQIwNgIwNwIwOAIwOQIxMAIxMQIxMgIxMwIxNAIxNQIxNgIxNwIxOAIxOQIyMAIyMQIyMgIyMwIyNAIyNQIyNgIyNwIyOAIyOQIzMBUfAAIwMQIwMgIwMwIwNAIwNQIwNgIwNwIwOAIwOQIxMAIxMQIxMgIxMwIxNAIxNQIxNgIxNwIxOAIxOQIyMAIyMQIyMgIyMwIyNAIyNQIyNgIyNwIyOAIyOQIzMBQrAx9nZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZGQCAg9kFgRmD2QWBgIDDw8WAh4ISW1hZ2VVcmwFXFZhbGlkTnVtYmVyLmFzcHg/Y2hlY2tDb2RlPVpnQkVBR3dBVWdCWUFGb0FhQUJCQUM4QU9BQTNBSGtBUXdBMEFIVUFVd0FyQUhZQWNnQjBBSFFBWndBOUFEMEEwZGQCBw8PFgIfAAUGTEY2NkpIZGQCCQ8PFgIfAAUBWWRkAgEPZBYCAgEPD2QWAh4Jb25rZXlkb3duBRdmblRyYXBLRChidG5PSywgZXZlbnQpO2QCAw9kFgJmD2QWAgIDDw8WBB4EXyFTQgIIHglCYWNrQ29sb3IKngFkZAIED2QWAmYPZBYCAgEPZBYCAgcPEGRkFgFmZAILDw8WAh8BaGQWAgIBD2QWBAICD2QWAgIDD2QWAgIBDxBkZBYBZmQCBA9kFgICAQ9kFhgCAQ8QZGQWAGQCAw8QZGQWAGQCBQ9kFgICAQ9kFgYCAw8QZGQWAWZkAgUPEGRkFgFmZAILDw8WAh8AZWRkAgkPZBYCAgEPZBYGAgMPEGRkFgFmZAIFDxBkZBYBZmQCCw8PFgIfAGVkZAIRDxBkZBYAZAITDxBkZBYAZAIbDxBkZBYAZAIjD2QWAgIBD2QWBgIDDxBkZBYBZmQCBQ8QZGQWAWZkAgsPDxYCHwBlZGQCJQ9kFgxmD2QWAgIBD2QWAgIBDxBkZBYAZAIBD2QWAgIBD2QWAgIBDxBkZBYAZAICD2QWAgIBD2QWAgIBDxBkZBYAZAIDD2QWAgIBD2QWAgIBDxBkZBYAZAIED2QWAgIBD2QWAgIBDxBkZBYAZAIFD2QWAgIBD2QWAgIBDxBkZBYAZAInD2QWAgIED2QWAgIBD2QWAgIBDxBkZBYAZAIpD2QWBAIFD2QWAgIBD2QWAgIBDxBkZBYAZAIGD2QWAgIBD2QWAgIBDxBkZBYAZAI1Dw8WAh8ABR0xMDnlubQ55pyIMuaXpeS4iuWNiCDnrKwwOeioumRkAg0PDxYCHwFoZGQCDw8PFgIfAWhkZBgBBR5fX0NvbnRyb2xzUmVxdWlyZVBvc3RCYWNrS2V5X18WAQULYnRuUmVOZXdOdW31OAggNUP42gljHtQAeIVQzyHPbA=='
+    registerQuery['__VIEWSTATE'] = viewState
     r = requests.post(url, headers=newXHeader, params=_param, data = registerQuery, verify=False)
 
-getCheckCode()
-getValiPic()
+# 獲取醫生底下資訊
+def getNewxHeader():
+    url = 'https://reg.ntuh.gov.tw/webadministration/ClinicListUnderSpecificTemplateIDSE.aspx'
+    r = requests.post(url, headers=newXHeader, params=serviceQuery, verify=False)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    buildFixNewQuery(soup)
+
+# 建置fixNewQuery資料
+def buildFixNewQuery(soup):
+    # 場次
+    session = 3
+
+    # 掛第幾場次
+    fixNewxQuery.update({
+        '__EVENTTARGET': 'DoctorServiceListInSeveralDaysTemplateIDSE$GridViewDoctorServiceList$_ctl' + str(session) + '$AdminTextShow',
+        '__EVENTARGUMENT': '',
+    })
+
+    # VIEWSTATEGENERATOR
+    generator = soup.find_all("input", id="__VIEWSTATEGENERATOR")
+    fixNewxQuery.update({
+        '__VIEWSTATEGENERATOR': generator[0].get('value')
+    })
+
+    # 科別
+    dept = soup.find_all("input", {"type":"hidden", "id": re.compile('Hidden')})
+    for item in dept:
+        fixNewxQuery.update({
+            item.get('id'): item.get('value')
+        })
+
+    # 場次資料
+    data = soup.find_all("input", id=re.compile("DoctorServiceListInSeveralDaysTemplateIDSE_GridViewDoctorServiceList__"))
+    for item in data :
+        fixNewxQuery.update({
+            item.get('name'): item.get('value')
+        })
+
+# 獲取viewState
+def getViewState():
+    url = 'https://reg.ntuh.gov.tw/webadministration/RegistForm.aspx'
+    _param = {
+        'newx': newx
+    }
+    r = requests.get(url, headers=newXHeader, params=_param, verify=False)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    firstViewState = soup.find("input", id="__VIEWSTATE").get('value')
+    registerQuery.update({
+        '__VIEWSTATE': firstViewState,
+        '__EVENTTARGET': 'radInputNum$1'
+    })
+
+    r = requests.post(url, headers=newXHeader, params=_param, data=registerQuery, verify=False)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    firstViewState = soup.find("input", id="__VIEWSTATE").get('value')
+    registerQuery.update({
+        '__VIEWSTATE': firstViewState,
+        '__EVENTTARGET': 'ddlBirthMonth'
+    })
+    r = requests.post(url, headers=newXHeader, params=_param, data=registerQuery, verify=False)
+    soup = BeautifulSoup(r.text, 'html.parser')
+    viewState = soup.find("input", id="__VIEWSTATE").get('value')
+    valiNum = str(base64.b64decode(viewState))
+    first = valiNum.index('\\x02\\x07\\x0f\\x0f\\x16\\x02\\x1f\\x00\\x05\\x06') + 40
+    valiNum = valiNum[first:first+6]
+    register(viewState, valiNum)
+
+
+getNewxHeader()
 getNewX()
+getViewState()
+
 f.close()
