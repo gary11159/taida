@@ -11,6 +11,7 @@ from io import BytesIO
 import re
 from bs4 import BeautifulSoup
 import base64
+import threading
 
 requests.packages.urllib3.disable_warnings()
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
@@ -31,7 +32,7 @@ newXHeader = {
 }
 
 serviceQuery = {
-    'ServiceIDSE': '4308298'
+    'ServiceIDSE': '4309855'
 }
 
 fixNewxQuery = {}
@@ -151,7 +152,14 @@ def collectData():
     getViewState()
 
 if __name__ == "__main__":
+    # 搜尋資料
     collectData()
     input('已準備好資料，Enter後自動掛號')
-    while(1):
-        register()
+    # 建立 10 個子執行緒
+    threads = []
+    for i in range(10):
+        threads.append(threading.Thread(target = register))
+        threads[i].start()
+    # 等待所有子執行緒結束
+    for i in range(10):
+        threads[i].join()
